@@ -14,60 +14,25 @@ export default {
         const text = update.message.text;
 
         if (text.startsWith("/start")) {
-          await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              chat_id: chatId, 
-              text: "ආයුබෝවන්! මගෙන් Facebook videos ඩවුන්ලෝඩ් කරගන්න පුළුවන්. ඕනෑම ප්‍රසිද්ධ (Public) Facebook video link එකක් මෙකට එවන්න." 
-            })
-          });
+          await sendTelegramMessage(BOT_TOKEN, chatId, "ආයුබෝවන්! මගෙන් Facebook videos ඩවුන්ලෝඩ් කරගන්න පුළුවන්. ඕනෑම ප්‍රසිද්ධ (Public) Facebook video link එකක් මෙකට එවන්න.");
         } else if (text.includes("facebook.com") || text.includes("fb.watch") || text.includes("share/v")) {
-          // ප්‍රථමයෙන් ප්‍රොසෙස් වෙමින් පවතී යැයි යැවීම
-          await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: chatId, text: "වීඩියෝ එක ප්‍රොසෙස් වෙමින් පවතී, ටිකක් ඉන්න..." })
-          });
-
+          await sendTelegramMessage(BOT_TOKEN, chatId, "වීඩියෝ එක ප්‍රොසෙස් වෙමින් පවතී, ටිකක් ඉන්න...");
+          
           try {
-            const apiRes = await fetch(`https://kaiz-apis.gleeze.com/api/fbdown?url=${encodeURIComponent(text)}`);
-            const data = await apiRes.json();
-
-            let videoUrl = null;
-            if (data && data.success && data.result) {
-              videoUrl = data.result.HD || data.result.SD || data.result.download_url;
-            } else if (data && data.url) {
-              videoUrl = data.url;
-            }
+            // Web Scraping ක්‍රමය හරහා Facebook Page එකෙන් වීඩියෝ ලින්ක් එක ලබා ගැනීම
+            const videoUrl = await scrapeFacebookVideo(text);
 
             if (videoUrl) {
-              await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chat_id: chatId, video: videoUrl, caption: "මෙන්න ඔබේ වීඩියෝව! 🎥" })
-              });
+              await sendTelegramVideo(BOT_TOKEN, chatId, videoUrl, "මෙන්න ඔබේ වීඩියෝව! 🎥");
             } else {
-              await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chat_id: chatId, text: "සමාවන්න, මෙම වීඩියෝවේ ඩවුන්ලෝඩ් ලින්ක් එක ලබා ගැනීමට නොහැකි විය." })
-              });
+              await sendTelegramMessage(BOT_TOKEN, chatId, "සමාවන්න, මෙම වීඩියෝවේ ඩවුන්ලෝඩ් ලින්ක් එක ලබා ගැනීමට නොහැකි විය. (වීඩියෝව Private වෙන්න පුළුවන්)");
             }
           } catch (e) {
-            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, text: "දෝෂයක් ඇති විය: " + e.message })
-            });
+            await sendTelegramMessage(BOT_TOKEN, chatId, "දෝෂයක් ඇති විය: " + e.message);
           }
 
         } else {
-          await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: chatId, text: "කරුණාකර නිවැරදි Facebook video link එකක් පමණක් එවන්න." })
-          });
+          await sendTelegramMessage(BOT_TOKEN, chatId, "කරුණාකර නිවැරදි Facebook video link එකක් පමණක් එවන්න.");
         }
       }
 
@@ -77,3 +42,57 @@ export default {
     }
   },
 };
+
+// Facebook Web Scraping Function
+async function scrapeFacebookVideo(fbUrl) {
+  try {
+    // Facebook mobile version එක මඟින් HTML ස්ක්‍රේප් කරගැනීම (User-Agent එක මාරු කරමින්)
+    const response = await fetch(fbUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/605.1.15",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+      }
+    });
+
+    const html = await response.text();
+
+    // Regular Expression හරහා HTML කේතය තුළ ඇති HD හෝ SD වීඩියෝ ලින්ක් එක (og:video හෝ mp4 URL) සොයා ගැනීම
+    const hdMatch = html.match(/"browser_native_hd_url":"([^"]+)"/) || html.match(/hd_src:"([^"]+)"/);
+    if (hdMatch && hdMatch[1]) {
+      return hdMatch[1].replace(/\\u0025/g, '%').replace(/\\/g, '');
+    }
+
+    const sdMatch = html.match(/"browser_native_sd_url":"([^"]+)"/) || html.match(/sd_src:"([^"]+)"/);
+    if (sdMatch && sdMatch[1]) {
+      return sdMatch[1].replace(/\\u0025/g, '%').replace(/\\/g, '');
+    }
+
+    // වෙනත් පද්ධතිමය ටැග් පරීක්ෂා කිරීම (og:video)
+    const ogVideoMatch = html.match(/property="og:video" content="([^"]+)"/);
+    if (ogVideoMatch && ogVideoMatch[1]) {
+      return ogVideoMatch[1].replace(/&amp;/g, '&');
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function sendTelegramMessage(token, chatId, text) {
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text: text }),
+  });
+}
+
+async function sendTelegramVideo(token, chatId, videoUrl, caption) {
+  const url = `https://api.telegram.org/bot${token}/sendVideo`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, video: videoUrl, caption: caption }),
+  });
+}
