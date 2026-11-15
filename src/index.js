@@ -19,13 +19,21 @@ export default {
           await sendTelegramMessage(BOT_TOKEN, chatId, "වීඩියෝ එක ප්‍රොසෙස් වෙමින් පවතී, ටිකක් ඉන්න...");
           
           try {
-            // Web Scraping ක්‍රමය හරහා Facebook Page එකෙන් වීඩියෝ ලින්ක් එක ලබා ගැනීම
-            const videoUrl = await scrapeFacebookVideo(text);
+            // fdown හෝ ඒ හා සමාන සේවාවන් මෙන් වීඩියෝ ලින්ක් ලබා ගන්නා API එකක් භාවිතය
+            const response = await fetch(`https://apis.davidcyriltech.my.id/facebook?url=${encodeURIComponent(text)}`);
+            const data = await response.json();
+
+            let videoUrl = null;
+            if (data && data.success && data.result) {
+              videoUrl = data.result.hd || data.result.sd || data.result.download_url;
+            } else if (data && data.video_url) {
+              videoUrl = data.video_url;
+            }
 
             if (videoUrl) {
               await sendTelegramVideo(BOT_TOKEN, chatId, videoUrl, "මෙන්න ඔබේ වීඩියෝව! 🎥");
             } else {
-              await sendTelegramMessage(BOT_TOKEN, chatId, "සමාවන්න, මෙම වීඩියෝවේ ඩවුන්ලෝඩ් ලින්ක් එක ලබා ගැනීමට නොහැකි විය. (වීඩියෝව Private වෙන්න පුළුවන්)");
+              await sendTelegramMessage(BOT_TOKEN, chatId, "සමාවන්න, මෙම වීඩියෝවේ ඩවුන්ලෝඩ් ලින්ක් එක ලබා ගැනීමට නොහැකි විය. වෙනත් ලින්ක් එකක් උත්සාහ කරන්න.");
             }
           } catch (e) {
             await sendTelegramMessage(BOT_TOKEN, chatId, "දෝෂයක් ඇති විය: " + e.message);
@@ -43,8 +51,23 @@ export default {
   },
 };
 
-// Facebook Web Scraping Function
-async function scrapeFacebookVideo(fbUrl) {
+async function sendTelegramMessage(token, chatId, text) {
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text: text }),
+  });
+}
+
+async function sendTelegramVideo(token, chatId, videoUrl, caption) {
+  const url = `https://api.telegram.org/bot${token}/sendVideo`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, video: videoUrl, caption: caption }),
+  });
+}(fbUrl) {
   try {
     // Facebook mobile version එක මඟින් HTML ස්ක්‍රේප් කරගැනීම (User-Agent එක මාරු කරමින්)
     const response = await fetch(fbUrl, {
