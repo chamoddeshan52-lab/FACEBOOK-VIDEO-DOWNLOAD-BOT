@@ -19,33 +19,35 @@ export default {
           await sendTelegramMessage(BOT_TOKEN, chatId, "වීඩියෝ එක ප්‍රොසෙස් වෙමින් පවතී, ටිකක් ඉන්න...");
           
           try {
-            // Free API එකක් හරහා Facebook video download link එක ලබා ගැනීම
-            const apiUrl = `https://api.socialapis.io/facebook/media/download?url=${encodeURIComponent(text)}`;
-            
-            // නැතහොත් වෙනත් නිදහස් endpoint එකක් පාවිච්චි කළ හැක. මෙහිදී අපි Direct download link එක යූසර්ට එවන්නෙමු.
-            const response = await fetch(`https://apis.davidcyriltech.my.id/facebook?url=${encodeURIComponent(text)}`);
+            // වෙනත් විකල්ප API එකක් භාවිතයෙන් වීඩියෝ ලින්ක් එක ලබා ගැනීම
+            const response = await fetch(`https://kaiz-apis.gleeze.com/api/fbdown?url=${encodeURIComponent(text)}`);
             const data = await response.json();
 
-            if (data && (data.video_url || data.link || data.download_url)) {
-              const videoUrl = data.video_url || data.link || data.download_url;
-              
-              // Telegram හරහා වීඩියෝව කෙලින්ම යැවීම (sendVideo)
+            // API ප්‍රතිචාරය පරීක්ෂා කිරීම
+            let videoUrl = null;
+            if (data && data.success && data.result) {
+              videoUrl = data.result.HD || data.result.SD || data.result.download_url;
+            } else if (data && data.url) {
+              videoUrl = data.url;
+            }
+
+            if (videoUrl) {
+              // Telegram හරහා වීඩියෝව කෙලින්ම යැවීම
               await sendTelegramVideo(BOT_TOKEN, chatId, videoUrl, "මෙන්න ඔබේ වීඩියෝව! 🎥");
             } else {
-              // වීඩියෝ ලින්ක් එක ලබා ගැනීමට නොහැකි නම් Direct Link එක ලෙස යැවීම
-              await sendTelegramMessage(BOT_TOKEN, chatId, "සමාවන්න, මෙම වීඩියෝව ඩවුන්ලෝඩ් කරගැනීමට නොහැකි විය. වෙනත් ලින්ක් එකක් උත්සාහ කරන්න.");
+              await sendTelegramMessage(BOT_TOKEN, chatId, "සමාවන්න, මෙම වීඩියෝවේ ඩවුන්ලෝඩ් ලින්ක් එක ලබා ගැනීමට නොහැකි විය. වෙනත් ලින්ක් එකක් උත්සාහ කරන්න.");
             }
           } catch (apiErr) {
-            await sendTelegramMessage(BOT_TOKEN, chatId, "වීඩියෝ එක ලබා ගැනීමේදී දෝෂයක් ඇති විය: " + apiErr.message);
+            await sendTelegramMessage(BOT_TOKEN, chatId, "දෝෂයක් ඇති විය: " + apiErr.message);
           }
 
         } else {
-          await sendTelegramMessage(BOT_TOKEN, chatId, "කරුණාකර సరైన Facebook video link එකක් පමණක් එවන්න.");
+          await sendTelegramMessage(BOT_TOKEN, chatId, "කරුණාකර නිවැරදි Facebook video link එකක් පමණක් එවන්න.");
         }
       }
 
       return new Response("OK", { status: 200 });
-    } catch (err) {
+    } `catch` (err) {
       return new Response("Error: " + err.message, { status: 500 });
     }
   },
