@@ -1,8 +1,3 @@
-{
-  "name": "fb-telegram-bot",
-  "version": "1.0.0",
-  "private": true,
-  "devDependencies": {
-    "wrangler": "^3.0.0"
-  }
-}
+name = "fb-telegram-bot"
+main = "src/index.js"
+compatibility_date = "2026-11-15"
