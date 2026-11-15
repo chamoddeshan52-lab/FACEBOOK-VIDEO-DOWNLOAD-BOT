@@ -11,29 +11,38 @@ export default {
       
       if (update.message && update.message.text) {
         const chatId = update.message.chat.id;
-        const text = update.message.text;
+        const text = update.message.text.trim();
 
         if (text.startsWith("/start")) {
-          await sendTelegramMessage(BOT_TOKEN, chatId, "ආයුබෝවන්! මගෙන් Facebook videos ඩවුන්ලෝඩ් කරගන්න පුළුවන්. ඕනෑම ප්‍රසිද්ධ (Public) Facebook video link එකක් මෙකට එවන්න.");
-        } else if (text.includes("facebook.com") || text.includes("fb.watch") || text.includes("share/v")) {
+          await sendTelegramMessage(BOT_TOKEN, chatId, "ආයුබෝවන්! මගෙන් Facebook videos ඩවුන්ලෝඩ් කරගන්න පුළුවන්. ඕනෑම ප්‍රසිද්ධ (Public) Facebook video, reel හෝ watch ලින්ක් එකක් මෙකට එවන්න.");
+        } else if (text.includes("facebook.com") || text.includes("fb.watch") || text.includes("fb.share")) {
           await sendTelegramMessage(BOT_TOKEN, chatId, "වීඩියෝ එක ප්‍රොසෙස් වෙමින් පවතී, ටිකක් ඉන්න...");
           
           try {
-            // fdown හෝ ඒ හා සමාන සේවාවන් මෙන් වීඩියෝ ලින්ක් ලබා ගන්නා API එකක් භාවිතය
-            const response = await fetch(`https://apis.davidcyriltech.my.id/facebook?url=${encodeURIComponent(text)}`);
+            // වෙනත් ස්ථාවර සහ විශ්වාසදායක Facebook Downloader API එකක් භාවිතය
+            const apiUrl = `https://bk9.fun/download/fbdown?url=${encodeURIComponent(text)}`;
+            const response = await fetch(apiUrl);
             const data = await response.json();
 
             let videoUrl = null;
-            if (data && data.success && data.result) {
-              videoUrl = data.result.hd || data.result.sd || data.result.download_url;
-            } else if (data && data.video_url) {
-              videoUrl = data.video_url;
+            if (data && data.status && data.result) {
+              // HD හෝ SD ලින්ක් එක ලබා ගැනීම
+              videoUrl = data.result.HD || data.result.SD || data.result.url;
+            }
+
+            // වෙනත් විකල්ප API එකක් මඟින් පරීක්ෂා කිරීම (මුල් එකෙන් නොලැබුනහොත්)
+            if (!videoUrl) {
+              const altResponse = await fetch(`https://api.siputzx.my.id/api/d/fbdown?url=${encodeURIComponent(text)}`);
+              const altData = await altResponse.json();
+              if (altData && altData.status && altData.data) {
+                videoUrl = altData.data.hd || altData.data.sd;
+              }
             }
 
             if (videoUrl) {
               await sendTelegramVideo(BOT_TOKEN, chatId, videoUrl, "මෙන්න ඔබේ වීඩියෝව! 🎥");
             } else {
-              await sendTelegramMessage(BOT_TOKEN, chatId, "සමාවන්න, මෙම වීඩියෝවේ ඩවුන්ලෝඩ් ලින්ක් එක ලබා ගැනීමට නොහැකි විය. වෙනත් ලින්ක් එකක් උත්සාහ කරන්න.");
+              await sendTelegramMessage(BOT_TOKEN, chatId, "සමාවන්න, මෙම වීඩියෝවේ ඩවුන්ලෝඩ් ලින්ක් එක ලබා ගැනීමට නොහැකි විය. වීඩියෝව Private (පෞද්ගලික) එකක් විය හැක.");
             }
           } catch (e) {
             await sendTelegramMessage(BOT_TOKEN, chatId, "දෝෂයක් ඇති විය: " + e.message);
