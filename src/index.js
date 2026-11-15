@@ -14,35 +14,18 @@ export default {
         const text = update.message.text.trim();
 
         if (text.startsWith("/start")) {
-          await sendTelegramMessage(BOT_TOKEN, chatId, "ආයුබෝවන්! මගෙන් Facebook videos ඩවුන්ලෝඩ් කරගන්න පුළුවන්. ඕනෑම ප්‍රසිද්ධ (Public) Facebook video, reel හෝ watch ලින්ක් එකක් මෙකට එවන්න.");
-        } else if (text.includes("facebook.com") || text.includes("fb.watch") || text.includes("fb.share")) {
+          await sendTelegramMessage(BOT_TOKEN, chatId, "ආයුබෝවන්! මගෙන් Facebook videos ඩවුන්ලෝඩ් කරගන්න පුළුවන්. ඕනෑම ප්‍රසිද්ධ (Public) Facebook video link එකක් මෙකට එවන්න.");
+        } else if (text.includes("facebook.com") || text.includes("fb.watch") || text.includes("share/v")) {
           await sendTelegramMessage(BOT_TOKEN, chatId, "වීඩියෝ එක ප්‍රොසෙස් වෙමින් පවතී, ටිකක් ඉන්න...");
           
           try {
-            // වෙනත් ස්ථාවර සහ විශ්වාසදායක Facebook Downloader API එකක් භාවිතය
-            const apiUrl = `https://bk9.fun/download/fbdown?url=${encodeURIComponent(text)}`;
-            const response = await fetch(apiUrl);
-            const data = await response.json();
-
-            let videoUrl = null;
-            if (data && data.status && data.result) {
-              // HD හෝ SD ලින්ක් එක ලබා ගැනීම
-              videoUrl = data.result.HD || data.result.SD || data.result.url;
-            }
-
-            // වෙනත් විකල්ප API එකක් මඟින් පරීක්ෂා කිරීම (මුල් එකෙන් නොලැබුනහොත්)
-            if (!videoUrl) {
-              const altResponse = await fetch(`https://api.siputzx.my.id/api/d/fbdown?url=${encodeURIComponent(text)}`);
-              const altData = await altResponse.json();
-              if (altData && altData.status && altData.data) {
-                videoUrl = altData.data.hd || altData.data.sd;
-              }
-            }
+            // fdown.net වෙත POST request එකක් යවා ඩවුන්ලෝඩ් ලින්ක් එක ලබා ගැනීම
+            const videoUrl = await fetchFDownVideo(text);
 
             if (videoUrl) {
               await sendTelegramVideo(BOT_TOKEN, chatId, videoUrl, "මෙන්න ඔබේ වීඩියෝව! 🎥");
             } else {
-              await sendTelegramMessage(BOT_TOKEN, chatId, "සමාවන්න, මෙම වීඩියෝවේ ඩවුන්ලෝඩ් ලින්ක් එක ලබා ගැනීමට නොහැකි විය. වීඩියෝව Private (පෞද්ගලික) එකක් විය හැක.");
+              await sendTelegramMessage(BOT_TOKEN, chatId, "සමාවන්න, මෙම වීඩියෝවේ ඩවුන්ලෝඩ් ලින්ක් එක ලබා ගැනීමට නොහැකි විය. වෙනත් ලින්ක් එකක් උත්සාහ කරන්න.");
             }
           } catch (e) {
             await sendTelegramMessage(BOT_TOKEN, chatId, "දෝෂයක් ඇති විය: " + e.message);
@@ -59,6 +42,48 @@ export default {
     }
   },
 };
+
+// fdown.net හරහා වීඩියෝ ලින්ක් එක ලබා ගන්නා ෆන්ක්ෂන් එක
+async function fetchFDownVideo(fbUrl) {
+  try {
+    const formData = new URLSearchParams();
+    formData.append("URL", fbUrl);
+
+    const response = await fetch("https://fdown.net/download.php", {
+      method: "POST",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Origin": "https://fdown.net",
+        "Referer": "https://fdown.net/"
+      },
+      body: formData.toString()
+    });
+
+    const html = await response.text();
+
+    // fdown රිזල්ට් පේජ් එකෙන් HD හෝ SD ලින්ක් එක Regex හරහා සොයා ගැනීම
+    const hdMatch = html.match(/id="hdlink"[^>]*href="([^"]+)"/) || html.match(/href="([^"]+)"[^>]*id="hdlink"/);
+    if (hdMatch && hdMatch[1]) {
+      return hdMatch[1];
+    }
+
+    const sdMatch = html.match(/id="sdlink"[^>]*href="([^"]+)"/) || html.match(/href="([^"]+)"[^>]*id="sdlink"/);
+    if (sdMatch && sdMatch[1]) {
+      return sdMatch[1];
+    }
+
+    // වෙනත් සාමාන්‍ය ඩවුන්ලෝඩ් බටන් ලින්ක් පරීක්ෂා කිරීම
+    const generalMatch = html.match(/class="btn btn-primary [^"]*"[^>]*href="([^"]+)"/);
+    if (generalMatch && generalMatch[1]) {
+      return generalMatch[1];
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
 
 async function sendTelegramMessage(token, chatId, text) {
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
