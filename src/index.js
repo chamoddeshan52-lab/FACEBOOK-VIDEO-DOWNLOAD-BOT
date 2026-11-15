@@ -19,11 +19,9 @@ export default {
           await sendTelegramMessage(BOT_TOKEN, chatId, "වීඩියෝ එක ප්‍රොසෙස් වෙමින් පවතී, ටිකක් ඉන්න...");
           
           try {
-            // වෙනත් විකල්ප API එකක් භාවිතයෙන් වීඩියෝ ලින්ක් එක ලබා ගැනීම
-            const response = await fetch(`https://kaiz-apis.gleeze.com/api/fbdown?url=${encodeURIComponent(text)}`);
+            const response = await fetch(`[https://kaiz-apis.gleeze.com/api/fbdown?url=$](https://kaiz-apis.gleeze.com/api/fbdown?url=$){encodeURIComponent(text)}`);
             const data = await response.json();
 
-            // API ප්‍රතිචාරය පරීක්ෂා කිරීම
             let videoUrl = null;
             if (data && data.success && data.result) {
               videoUrl = data.result.HD || data.result.SD || data.result.download_url;
@@ -32,7 +30,6 @@ export default {
             }
 
             if (videoUrl) {
-              // Telegram හරහා වීඩියෝව කෙලින්ම යැවීම
               await sendTelegramVideo(BOT_TOKEN, chatId, videoUrl, "මෙන්න ඔබේ වීඩියෝව! 🎥");
             } else {
               await sendTelegramMessage(BOT_TOKEN, chatId, "සමාවන්න, මෙම වීඩියෝවේ ඩවුන්ලෝඩ් ලින්ක් එක ලබා ගැනීමට නොහැකි විය. වෙනත් ලින්ක් එකක් උත්සාහ කරන්න.");
@@ -47,14 +44,14 @@ export default {
       }
 
       return new Response("OK", { status: 200 });
-    } `catch` (err) {
+    } catch (err) {
       return new Response("Error: " + err.message, { status: 500 });
     }
   },
 };
 
 async function sendTelegramMessage(token, chatId, text) {
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const url = `[https://api.telegram.org/bot$](https://api.telegram.org/bot$){token}/sendMessage`;
   await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -63,7 +60,7 @@ async function sendTelegramMessage(token, chatId, text) {
 }
 
 async function sendTelegramVideo(token, chatId, videoUrl, caption) {
-  const url = `https://api.telegram.org/bot${token}/sendVideo`;
+  const url = `[https://api.telegram.org/bot$](https://api.telegram.org/bot$){token}/sendVideo`;
   await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
